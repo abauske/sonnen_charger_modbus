@@ -90,12 +90,12 @@ def toString(reg, size = 20) -> str:
     decoder = BinaryPayloadDecoder.fromRegisters(reg)
     return str(decoder.decode_string(size).decode("utf-8"))
 
-def wrapInt64(self, value):
+def wrapInt64(value):
     builder = BinaryPayloadBuilder(byteorder=Endian.Big, wordorder=Endian.Big)
     builder.add_64bit_int(value)
     return builder.build()
 
-def wrapFloat(self, value):
+def wrapFloat(value):
     builder = BinaryPayloadBuilder(byteorder=Endian.Big, wordorder=Endian.Big)
     builder.add_32bit_float(value)
     return builder.build()
