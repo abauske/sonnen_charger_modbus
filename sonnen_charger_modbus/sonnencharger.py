@@ -8,6 +8,9 @@ from pymodbus.payload import BinaryPayloadDecoder, BinaryPayloadBuilder
 from pymodbus.constants import Endian
 from enum import Enum
 
+MIN_CHARGE_CURRENT = 6
+MAX_CHARGE_CURRENT = 32
+
 # Real time values
 ADDR_CONNNECTOR_STATUS_BASE = 0
 ADDR_MEASURED_VEHICLE_NUMBER_OF_PHASES_BASE = 1
@@ -335,8 +338,13 @@ class Charger:
         seconds_since_1970 = time.mktime(departure.timetuple())
         self.client.write_registers(ADDR_SET_DEPARTURE_TIME_BASE + connector * 100, wrapInt64(seconds_since_1970), skip_encode=True)
 
-    def setCurrent(self, currentA, connector = 0):
-        """ Set current setpoint in A for connector """
+    def setCurrent(self, currentA, connector = 0, clamp = False):
+        """ Set current setpoint in A for connector.
+            If clamp is True then currentA is clamped
+            between minimum (6A) and maximum (32A)
+            charge current. Otherwise, a value of <6A
+            will result in not charging. """
+        currentA = currentA if not clamp else max(MIN_CHARGE_CURRENT, min(MAX_CHARGE_CURRENT, currentA))
         self.client.write_registers(ADDR_SET_CURRENT_SETPOINT_BASE + connector * 100, wrapFloat(currentA), skip_encode=True)
 
     def cancelCurrentSetpoint(self, connector = 0):
