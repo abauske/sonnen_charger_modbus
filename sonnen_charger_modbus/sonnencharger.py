@@ -1,9 +1,10 @@
 
 import datetime
+import time
 from struct import *
 
 from pymodbus.client import ModbusTcpClient
-from pymodbus.payload import BinaryPayloadDecoder
+from pymodbus.payload import BinaryPayloadDecoder, BinaryPayloadBuilder
 from pymodbus.constants import Endian
 from enum import Enum
 
@@ -44,6 +45,17 @@ ADDR_L2_CONNECTED_TO_PHASE_BASE = 1025
 ADDR_L3_CONNECTED_TO_PHASE_BASE = 1026
 ADDR_CUSTOM_MAX_CURRENT_BASE = 1028
 
+# Write Registers
+ADDR_STOP_CHARGING_BASE = 1
+ADDR_PAUSE_CHARGING_BASE = 2
+ADDR_SET_DEPARTURE_TIME_BASE = 4
+ADDR_SET_CURRENT_SETPOINT_BASE = 8
+ADDR_CANCEL_CURRENT_SETPOINT_BASE = 10
+ADDR_SET_POWER_SETPOINT_BASE = 11
+ADDR_CANCEL_POWER_SETPOINT_BASE = 13
+ADDR_SET_TIME = 1000
+ADDR_RESTART = 1004
+
 class ChargerConnector(Enum):
     SocketType2 = 1
     CableType2 = 2
@@ -77,6 +89,16 @@ def toFloat(reg) -> float:
 def toString(reg, size = 20) -> str:
     decoder = BinaryPayloadDecoder.fromRegisters(reg)
     return str(decoder.decode_string(size).decode("utf-8"))
+
+def wrapInt64(self, value):
+    builder = BinaryPayloadBuilder(byteorder=Endian.Big, wordorder=Endian.Big)
+    builder.add_64bit_int(value)
+    return builder.build()
+
+def wrapFloat(self, value):
+    builder = BinaryPayloadBuilder(byteorder=Endian.Big, wordorder=Endian.Big)
+    builder.add_32bit_float(value)
+    return builder.build()
     
 
 class Charger:
@@ -297,6 +319,46 @@ class Charger:
         """ Connector EV planned (required) energy in kWh """
         response = self.client.read_input_registers(address=ADDR_EV_PLANNED_ENERGY_BASE + connector * 100, count=2)
         return toFloat(response.registers)
+
+
+    # Commands
+    def stopCharging(self, connector = 0):
+        """ Stop charging for connector """
+        self.client.write_registers(ADDR_STOP_CHARGING_BASE + connector * 100, [1])
+
+    def pauseCharging(self, connector = 0):
+        """ Pause charging for connector """
+        self.client.write_registers(ADDR_PAUSE_CHARGING_BASE + connector * 100, [1])
+
+    def setDepartureTime(self, departure: datetime.datetime, connector = 0):
+        """ Set departure time for connector """
+        seconds_since_1970 = time.mktime(departure.timetuple())
+        self.client.write_registers(ADDR_SET_DEPARTURE_TIME_BASE + connector * 100, wrapInt64(seconds_since_1970), skip_encode=True)
+
+    def setCurrent(self, currentA, connector = 0):
+        """ Set current setpoint in A for connector """
+        self.client.write_registers(ADDR_SET_CURRENT_SETPOINT_BASE + connector * 100, wrapFloat(currentA), skip_encode=True)
+
+    def cancelCurrentSetpoint(self, connector = 0):
+        """ Cancel current setpoint for connector """
+        self.client.write_registers(ADDR_CANCEL_CURRENT_SETPOINT_BASE + connector * 100, [1])
+
+    def setPower(self, watt, connector = 0):
+        """ Set power setpoint in W for connector """
+        self.client.write_registers(ADDR_SET_POWER_SETPOINT_BASE + connector * 100, wrapFloat(watt / 1000), skip_encode=True)
+
+    def cancelPowerSetpoint(self, connector = 0):
+        """ Cancel power setpoint for connector """
+        self.client.write_registers(ADDR_CANCEL_POWER_SETPOINT_BASE + connector * 100, [1])
+
+    def setTime(self, now: datetime.datetime):
+        """ Set current time """
+        seconds_since_1970 = time.mktime(now.timetuple())
+        self.client.write_registers(ADDR_SET_TIME, wrapInt64(seconds_since_1970), skip_encode=True)
+
+    def restart(self):
+        """ Trigger restart """
+        self.client.write_registers(ADDR_RESTART, [1])
 
     def close(self):
         self.client.close()
