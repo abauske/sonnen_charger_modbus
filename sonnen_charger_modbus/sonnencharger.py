@@ -338,14 +338,16 @@ class Charger:
         seconds_since_1970 = time.mktime(departure.timetuple())
         self.client.write_registers(ADDR_SET_DEPARTURE_TIME_BASE + connector * 100, wrapInt64(seconds_since_1970), skip_encode=True)
 
-    def setCurrent(self, currentA, connector = 0, clamp = False):
+    def setCurrent(self, currentA, connector = 0, clamp = False) -> int:
         """ Set current setpoint in A for connector.
             If clamp is True then currentA is clamped
             between minimum (6A) and maximum (32A)
             charge current. Otherwise, a value of <6A
-            will result in not charging. """
+            will result in not charging.
+            :return: charging current commanded to charger"""
         currentA = currentA if not clamp else max(MIN_CHARGE_CURRENT, min(MAX_CHARGE_CURRENT, currentA))
         self.client.write_registers(ADDR_SET_CURRENT_SETPOINT_BASE + connector * 100, wrapFloat(currentA), skip_encode=True)
+        return currentA
 
     def cancelCurrentSetpoint(self, connector = 0):
         """ Cancel current setpoint for connector """

@@ -20,3 +20,12 @@ except Exception as e:
 
 charger.close()
 ```
+
+## How to release (only for devs)
+```
+py -m pip install --upgrade build
+# Delete old files in dist/
+py -m build
+twine check dist/*
+twine upload dist/*
+```
